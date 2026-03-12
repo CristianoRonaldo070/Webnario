@@ -2,9 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const mongoose = require('mongoose');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
@@ -36,8 +34,8 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // ----- Socket.IO Real-time Chat -----
-const ChatMessage = require('./models/ChatMessage');
-const Project = require('./models/Project');
+const { getProjectById } = require('./lib/projectQueries');
+const { createMessage } = require('./lib/chatQueries');
 
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -57,7 +55,7 @@ io.on('connection', (socket) => {
     // Client joins a room for a specific project
     socket.on('join_room', async ({ projectId }) => {
         try {
-            const project = await Project.findById(projectId);
+            const project = await getProjectById(projectId);
             if (!project) return;
             if (project.adminDecision !== 'Accepted') return;
             // Only allow the project owner or admin
@@ -73,17 +71,16 @@ io.on('connection', (socket) => {
     socket.on('send_message', async ({ projectId, text }) => {
         try {
             if (!text || !text.trim()) return;
-            const project = await Project.findById(projectId);
+            const project = await getProjectById(projectId);
             if (!project || project.adminDecision !== 'Accepted') return;
             if (!socket.user.isAdmin && project.clientEmail !== socket.user.email) return;
 
-            const msg = await ChatMessage.create({
+            const msg = await createMessage({
                 projectId,
                 senderEmail: socket.user.email,
                 senderName: socket.user.name,
                 isAdmin: socket.user.isAdmin,
                 text: text.trim(),
-                timestamp: new Date(),
             });
 
             // Emit to everyone in the room (including sender)
@@ -94,7 +91,7 @@ io.on('connection', (socket) => {
                 senderName: msg.senderName,
                 isAdmin: msg.isAdmin,
                 text: msg.text,
-                timestamp: msg.timestamp.toISOString(),
+                timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
             });
         } catch (err) {
             console.error('send_message error:', err.message);
@@ -106,36 +103,27 @@ io.on('connection', (socket) => {
     });
 });
 
-// Connect to MongoDB and seed admin
-const connectAndSeed = async () => {
+// Seed admin user on startup (if not exists)
+const seedAdmin = async () => {
+    const { findByEmail, createUser } = require('./lib/userQueries');
+    const bcrypt = require('bcryptjs');
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@webnario.com';
     try {
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ MongoDB connected');
-
-        const User = require('./models/User');
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@webnario.com';
-        const existing = await User.findOne({ email: adminEmail });
+        const existing = await findByEmail(adminEmail);
         if (!existing) {
             const hashed = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
-            await User.create({
-                name: 'Admin',
-                email: adminEmail,
-                password: hashed,
-                isAdmin: true,
-            });
+            await createUser({ name: 'Admin', email: adminEmail, password: hashed, is_admin: true });
             console.log('✅ Admin user seeded:', adminEmail);
         } else {
             console.log('ℹ️  Admin user already exists');
         }
     } catch (err) {
-        console.error('❌ MongoDB connection error:', err.message);
-        process.exit(1);
+        console.error('❌ Admin seed error:', err.message);
     }
 };
 
-connectAndSeed();
-
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+    await seedAdmin();
 });

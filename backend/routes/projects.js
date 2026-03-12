@@ -1,6 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const Project = require('../models/Project');
+const {
+    getAllProjects,
+    getProjectsByEmail,
+    getProjectById,
+    createProject,
+    updateProjectStatus,
+    updateAdminDecision,
+    addNote,
+    deleteProject,
+} = require('../lib/projectQueries');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 
 // GET /api/projects — admin gets all, client gets own
@@ -8,12 +17,13 @@ router.get('/', authMiddleware, async (req, res) => {
     try {
         let projects;
         if (req.user.isAdmin) {
-            projects = await Project.find().sort({ createdAt: -1 });
+            projects = await getAllProjects();
         } else {
-            projects = await Project.find({ clientEmail: req.user.email }).sort({ createdAt: -1 });
+            projects = await getProjectsByEmail(req.user.email);
         }
         res.json(projects);
     } catch (err) {
+        console.error('Get projects error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -25,12 +35,8 @@ router.post('/', authMiddleware, async (req, res) => {
             ...req.body,
             clientEmail: req.user.email,
             clientName: req.user.name,
-            status: 'Pending',
-            adminDecision: 'Pending',
-            notes: [],
-            createdAt: new Date().toISOString(),
         };
-        const project = await Project.create(data);
+        const project = await createProject(data);
         res.status(201).json(project);
     } catch (err) {
         console.error('Create project error:', err);
@@ -42,14 +48,11 @@ router.post('/', authMiddleware, async (req, res) => {
 router.patch('/:id/status', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { status } = req.body;
-        const project = await Project.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true }
-        );
+        const project = await updateProjectStatus(req.params.id, status);
         if (!project) return res.status(404).json({ message: 'Project not found' });
         res.json(project);
     } catch (err) {
+        console.error('Update status error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -58,14 +61,11 @@ router.patch('/:id/status', authMiddleware, adminMiddleware, async (req, res) =>
 router.patch('/:id/decision', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { decision } = req.body; // "Accepted" | "Rejected"
-        const project = await Project.findByIdAndUpdate(
-            req.params.id,
-            { adminDecision: decision },
-            { new: true }
-        );
+        const project = await updateAdminDecision(req.params.id, decision);
         if (!project) return res.status(404).json({ message: 'Project not found' });
         res.json(project);
     } catch (err) {
+        console.error('Update decision error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -74,14 +74,11 @@ router.patch('/:id/decision', authMiddleware, adminMiddleware, async (req, res) 
 router.post('/:id/notes', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { text } = req.body;
-        const project = await Project.findByIdAndUpdate(
-            req.params.id,
-            { $push: { notes: { text, date: new Date().toISOString() } } },
-            { new: true }
-        );
+        const project = await addNote(req.params.id, text);
         if (!project) return res.status(404).json({ message: 'Project not found' });
         res.json(project);
     } catch (err) {
+        console.error('Add note error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -89,10 +86,10 @@ router.post('/:id/notes', authMiddleware, adminMiddleware, async (req, res) => {
 // DELETE /api/projects/:id — admin deletes a project
 router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const project = await Project.findByIdAndDelete(req.params.id);
-        if (!project) return res.status(404).json({ message: 'Project not found' });
+        await deleteProject(req.params.id);
         res.json({ message: 'Deleted' });
     } catch (err) {
+        console.error('Delete project error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });

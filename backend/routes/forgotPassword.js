@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const User = require('../models/User');
-const OTP = require('../models/OTP');
+const { findByEmail, updatePassword } = require('../lib/userQueries');
+const { deleteByEmail, createOtp, findUnusedOtp, markUsed, deleteOtpById, findVerifiedOtp } = require('../lib/otpQueries');
 
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -23,16 +23,16 @@ router.post('/send-otp', async (req, res) => {
         const { email } = req.body;
         if (!email) return res.status(400).json({ message: 'Email is required' });
 
-        const user = await User.findOne({ email: email.toLowerCase() });
+        const user = await findByEmail(email);
         if (!user) return res.status(404).json({ message: 'No account found with this email' });
 
         // Delete any existing OTPs for this email
-        await OTP.deleteMany({ email: email.toLowerCase() });
+        await deleteByEmail(email);
 
         const otp = generateOTP();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        await OTP.create({ email: email.toLowerCase(), otp, expiresAt });
+        await createOtp({ email, otp, expiresAt });
 
         // Send email
         await transporter.sendMail({
@@ -65,11 +65,11 @@ router.post('/verify-otp', async (req, res) => {
         const { email, otp } = req.body;
         if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' });
 
-        const record = await OTP.findOne({ email: email.toLowerCase(), used: false });
+        const record = await findUnusedOtp(email);
         if (!record) return res.status(400).json({ message: 'OTP not found or already used' });
 
-        if (new Date() > record.expiresAt) {
-            await OTP.deleteOne({ _id: record._id });
+        if (new Date() > new Date(record.expires_at)) {
+            await deleteOtpById(record.id);
             return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
         }
 
@@ -78,8 +78,7 @@ router.post('/verify-otp', async (req, res) => {
         }
 
         // Mark OTP as used
-        record.used = true;
-        await record.save();
+        await markUsed(record.id);
 
         res.json({ message: 'OTP verified', verified: true });
     } catch (err) {
@@ -96,8 +95,8 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ message: 'Email, OTP and new password are required' });
         }
 
-        // Re-verify OTP (used = true means it was verified)
-        const record = await OTP.findOne({ email: email.toLowerCase(), otp, used: true });
+        // Re-verify OTP (used=true means it was verified)
+        const record = await findVerifiedOtp(email, otp);
         if (!record) return res.status(400).json({ message: 'Session expired. Please restart the process.' });
 
         if (newPassword.length < 6) {
@@ -105,13 +104,10 @@ router.post('/reset-password', async (req, res) => {
         }
 
         const hashed = await bcrypt.hash(newPassword, 10);
-        await User.findOneAndUpdate(
-            { email: email.toLowerCase() },
-            { password: hashed }
-        );
+        await updatePassword(email, hashed);
 
-        // Clean up OTP
-        await OTP.deleteMany({ email: email.toLowerCase() });
+        // Clean up OTPs
+        await deleteByEmail(email);
 
         res.json({ message: 'Password reset successfully' });
     } catch (err) {

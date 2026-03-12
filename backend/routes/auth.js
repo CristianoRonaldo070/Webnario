@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { findByEmail, createUser } = require('../lib/userQueries');
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
@@ -11,18 +11,18 @@ router.post('/signup', async (req, res) => {
         if (!name || !email || !password) {
             return res.status(400).json({ message: 'All fields are required' });
         }
-        const existing = await User.findOne({ email: email.toLowerCase() });
+        const existing = await findByEmail(email);
         if (existing) {
             return res.status(409).json({ message: 'Email already registered' });
         }
         const hashed = await bcrypt.hash(password, 10);
-        const user = await User.create({ name, email: email.toLowerCase(), password: hashed });
+        const user = await createUser({ name, email, password: hashed });
         const token = jwt.sign(
-            { id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin },
+            { id: user.id, name: user.name, email: user.email, isAdmin: user.is_admin },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
-        res.status(201).json({ token, user: { name: user.name, email: user.email, isAdmin: user.isAdmin } });
+        res.status(201).json({ token, user: { name: user.name, email: user.email, isAdmin: user.is_admin } });
     } catch (err) {
         console.error('Signup error:', err);
         res.status(500).json({ message: 'Server error' });
@@ -36,7 +36,7 @@ router.post('/login', async (req, res) => {
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password required' });
         }
-        const user = await User.findOne({ email: email.toLowerCase() });
+        const user = await findByEmail(email);
         if (!user) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -45,11 +45,11 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         const token = jwt.sign(
-            { id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin },
+            { id: user.id, name: user.name, email: user.email, isAdmin: user.is_admin },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
-        res.json({ token, user: { name: user.name, email: user.email, isAdmin: user.isAdmin } });
+        res.json({ token, user: { name: user.name, email: user.email, isAdmin: user.is_admin } });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ message: 'Server error' });
