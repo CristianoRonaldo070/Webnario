@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const { findByEmail, updatePassword } = require('../lib/userQueries');
-const { deleteByEmail, createOtp, findUnusedOtp, markUsed, deleteOtpById, findVerifiedOtp } = require('../lib/otpQueries');
+const { findByEmail, updatePassword } = require('../lib/userQueries.cjs');
+const { deleteByEmail, createOtp, findUnusedOtp, markUsed, deleteOtpById, findVerifiedOtp } = require('../lib/otpQueries.cjs');
 
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({

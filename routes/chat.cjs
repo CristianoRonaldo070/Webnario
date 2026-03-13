@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { getMessages } = require('../lib/chatQueries');
-const { getProjectById } = require('../lib/projectQueries');
-const { authMiddleware } = require('../middleware/auth');
+const { getMessages } = require('../lib/chatQueries.cjs');
+const { getProjectById } = require('../lib/projectQueries.cjs');
+const { authMiddleware } = require('../middleware/auth.cjs');
 
 // GET /api/chat/:projectId — fetch message history (last 100)
 router.get('/:projectId', authMiddleware, async (req, res) => {

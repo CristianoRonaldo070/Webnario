@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { findByEmail, createUser } = require('../lib/userQueries');
+const { findByEmail, createUser } = require('../lib/userQueries.cjs');
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {

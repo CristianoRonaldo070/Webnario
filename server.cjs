@@ -28,10 +28,10 @@ app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // Routes
-const authRoutes = require('./routes/auth');
-const projectRoutes = require('./routes/projects');
-const chatRoutes = require('./routes/chat');
-const forgotPasswordRoutes = require('./routes/forgotPassword');
+const authRoutes = require('./routes/auth.cjs');
+const projectRoutes = require('./routes/projects.cjs');
+const chatRoutes = require('./routes/chat.cjs');
+const forgotPasswordRoutes = require('./routes/forgotPassword.cjs');
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/chat', chatRoutes);
@@ -41,8 +41,8 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // ----- Socket.IO Real-time Chat -----
-const { getProjectById } = require('./lib/projectQueries');
-const { createMessage } = require('./lib/chatQueries');
+const { getProjectById } = require('./lib/projectQueries.cjs');
+const { createMessage } = require('./lib/chatQueries.cjs');
 
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -112,7 +112,7 @@ io.on('connection', (socket) => {
 
 // Seed admin user on startup (if not exists)
 const seedAdmin = async () => {
-    const { findByEmail, createUser } = require('./lib/userQueries');
+    const { findByEmail, createUser } = require('./lib/userQueries.cjs');
     const bcrypt = require('bcryptjs');
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@webnario.com';
     try {

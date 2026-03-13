@@ -9,8 +9,8 @@ const {
     updateAdminDecision,
     addNote,
     deleteProject,
-} = require('../lib/projectQueries');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+} = require('../lib/projectQueries.cjs');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth.cjs');
 
 // GET /api/projects — admin gets all, client gets own
 router.get('/', authMiddleware, async (req, res) => {
