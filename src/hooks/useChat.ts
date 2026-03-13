@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = ""; // connects to same origin — Vite proxies /socket.io → localhost:5000
+// In production, VITE_BACKEND_URL should be your Render backend origin (e.g. https://webnario-backend.onrender.com)
+// In local dev, empty string means same origin — Vite proxies /socket.io → localhost:5000
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export interface ChatMessage {
     _id: string;
@@ -24,7 +27,7 @@ export function useChat(projectId: string | null) {
         const token = localStorage.getItem("webnario_token");
         if (!token) return;
 
-        fetch(`/api/chat/${projectId}`, {
+        fetch(`${API_BASE}/chat/${projectId}`, {
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((r) => r.json())
@@ -39,7 +42,7 @@ export function useChat(projectId: string | null) {
         const token = localStorage.getItem("webnario_token");
         if (!token) return;
 
-        const socket = io(SOCKET_URL, {
+        const socket = io(BACKEND_URL, {
             auth: { token },
             transports: ["websocket"],
         });

@@ -1,3 +1,5 @@
+// In production, VITE_API_URL should be your Render backend URL (e.g. https://webnario-backend.onrender.com/api)
+// In local dev, the Vite proxy handles /api → localhost:5000
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const getToken = (): string | null => localStorage.getItem('webnario_token');

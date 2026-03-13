@@ -8,16 +8,23 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'https://webnario.vercel.app',
+];
+
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:5173', 'http://localhost:8080', 'https://webnario.vercel.app'],
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true,
     },
 });
 
 // Middleware
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:8080', 'http://localhost:3000'], credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // Routes
